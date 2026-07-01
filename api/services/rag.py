@@ -1,5 +1,6 @@
 from groq import Groq
 
+from api.config.prompts import RAG_PROMPT
 from api.config.settings import settings
 from api.models.rag import RAGResponse
 from api.services.search import SearchService
@@ -15,12 +16,7 @@ class RAGService:
 
         context = "\n\n".join(result.text for result in search_result.results)
 
-        prompt = f"""
-        Based on the following financial documents, answer the question.
-        Context: {context}
-        Question : {query}
-        Answer:
-        """
+        prompt = RAG_PROMPT.format(context=context, query=query)
 
         response = self.client.chat.completions.create(
             model=settings.groq_model,
