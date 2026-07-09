@@ -30,15 +30,14 @@ class NewsClient:
             text_content = trafilatura.extract(downloaded)
 
             if text_content:
-                metadata = (
-                    {
-                        "ticker": ticker,
-                        "title": title,
-                        "url": url,
-                        "date": date,
-                        "source": "yahoo_finance",
-                    },
-                )
+                metadata = {
+                    "ticker": ticker,
+                    "title": title,
+                    "url": url,
+                    "date": date,
+                    "source": "yahoo_finance",
+                }
+
                 news_data.append({"text": text_content, "metadata": metadata})
 
         return news_data

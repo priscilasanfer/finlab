@@ -9,7 +9,7 @@ from utils.simple_chunker import SimpleChunker
 
 load_dotenv()
 
-DENSE_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+DENSE_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 SPARSE_MODEL = "Qdrant/bm25"
 COLBERT_MODEL = "colbert-ir/colbertv2.0"
 COLLECTION_NAME = "financial"
@@ -32,7 +32,7 @@ for article in news_data:
     for chunk in chunks:
         all_chunks.append({"text": chunk, "metadata": article["metadata"]})
 
-dense_model = TextEmbedding(model_name=DENSE_NAME)
+dense_model = TextEmbedding(model_name=DENSE_MODEL)
 sparse_model = SparseTextEmbedding(model_name=SPARSE_MODEL)
 colbert_model = LateInteractionTextEmbedding(model_name=COLBERT_MODEL)
 
@@ -42,14 +42,14 @@ for chunk_data in all_chunks:
     metadata = chunk_data["metadata"]
 
     dense_embedding = list(dense_model.passage_embed([chunk]))[0].tolist()
-    dense_sparse = list(sparse_model.passage_embed([chunk]))[0].as_object()
+    sparse_embedding = list(sparse_model.passage_embed([chunk]))[0].as_object()
     colbert_embedding = list(colbert_model.passage_embed([chunk]))[0].tolist()
 
     point = models.PointStruct(
         id=str(uuid.uuid4()),
         vector={
             "dense": dense_embedding,
-            "sparse": dense_sparse,
+            "sparse": sparse_embedding,
             "colbert": colbert_embedding,
         },
         payload={"text": chunk, "metadata": metadata},

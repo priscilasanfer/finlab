@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class SearchRequest(BaseModel):
     query: str
     limit: int = 3
+    filter: Optional[Dict[str, Any]] = None
 
 
 class SearchResult(BaseModel):
