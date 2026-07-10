@@ -9,11 +9,11 @@ from utils.semantic_chunker import SemanticChunker
 
 load_dotenv()
 
-DENSE_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+DENSE_NAME = "intfloat/multilingual-e5-large"
 SPARSE_MODEL = "Qdrant/bm25"
 COLBERT_MODEL = "colbert-ir/colbertv2.0"
 COLLECTION_NAME = "financial"
-MAX_TOKENS = 300
+MAX_TOKENS = 500
 
 
 qdrant = QdrantClient(

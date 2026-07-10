@@ -19,7 +19,7 @@ qdrant.create_collection(
     collection_name=COLLECTION_NAME,
     vectors_config={
         "dense": models.VectorParams(
-            size=384,
+            size=1024,
             distance=models.Distance.COSINE,
         ),
         "colbert": models.VectorParams(
