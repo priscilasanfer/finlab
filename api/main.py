@@ -1,7 +1,8 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.routers import agent, rag, search
-from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Financial Search API")
 
 

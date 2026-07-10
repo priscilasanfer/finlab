@@ -85,4 +85,4 @@ api/
 
 ## Frontend
 
-Interface web disponível em: [finlab-front](https://github.com/infoslack/finlab-front)
+Interface web disponível em: [finlab-front](https://github.com/priscilasanfer/finlab-front)
