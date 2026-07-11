@@ -6,7 +6,7 @@ from qdrant_client import QdrantClient, models
 
 load_dotenv()
 
-DENSE_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+DENSE_MODEL = "intfloat/multilingual-e5-large"
 SPARSE_MODEL = "Qdrant/bm25"
 COLBERT_MODEL = "colbert-ir/colbertv2.0"
 COLLECTION_NAME = "financial"
@@ -40,6 +40,13 @@ results = qdrant.query_points(
     query=query_colbert,
     using="colbert",
     limit=3,
+    search_params=models.SearchParams(
+        quantization=models.QuantizationSearchParams(
+            ignore=False,
+            rescore=True,
+            oversampling=1.5,
+        )
+    ),
 )
 
 max_score = max(result.score for result in results.points)

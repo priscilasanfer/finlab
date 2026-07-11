@@ -21,6 +21,7 @@ qdrant.create_collection(
         "dense": models.VectorParams(
             size=1024,
             distance=models.Distance.COSINE,
+            on_disk=True,
         ),
         "colbert": models.VectorParams(
             size=128,
@@ -33,4 +34,11 @@ qdrant.create_collection(
     sparse_vectors_config={
         "sparse": models.SparseVectorParams(),
     },
+    quant_vectors_config=models.ScalarQuantization(
+        scalar=models.ScalarQuantizationConfig(
+            type=models.ScalarType.INT8,
+            quantile=0.99,
+            always_ram=True,
+        )
+    ),
 )
