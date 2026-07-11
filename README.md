@@ -86,3 +86,90 @@ api/
 ## Frontend
 
 Interface web disponível em: [finlab-front](https://github.com/priscilasanfer/finlab-front)
+
+---
+
+## Branch `extras` — Otimizações para Produção
+
+A branch [`extras`](https://github.com/priscilasanfer/finlab/tree/extras) contém duas melhorias pensadas para uso em produção: troca do modelo de embedding e compressão de vetores com quantização.
+
+### 1. Modelo de Embedding Multilingual
+
+O modelo padrão do curso (`all-MiniLM-L6-v2`) foi substituído pelo [`intfloat/multilingual-e5-large`](https://huggingface.co/intfloat/multilingual-e5-large).
+
+**Por que trocar?**
+
+O `all-MiniLM-L6-v2` tem dois problemas para uso em produção:
+
+- **Limite de tokens baixo:** foi treinado com sequências de 128 tokens e a documentação oficial recomenda truncar em 256. Forçar 300 ou 512 tokens faz o modelo processar textos maiores do que viu no treinamento, piorando a qualidade dos embeddings e aumentando o tempo de processamento.
+- **Somente inglês:** não performa bem com queries em português, espanhol ou outros idiomas.
+
+**Vantagens do novo modelo:**
+
+| | `all-MiniLM-L6-v2` | `multilingual-e5-large` |
+|---|---|---|
+| Parâmetros | 22 milhões | 560 milhões |
+| Dimensões do vetor | 384 | 1024 |
+| Limite de tokens | 256 (recomendado) | 512 |
+| Idiomas | Inglês | 90+ idiomas |
+
+O modelo maior é mais lento na ingestão, mas isso raramente é problema em produção, pois a ingestão acontece offline e o gargalo real nas queries é a chamada ao LLM, não o modelo de embedding.
+
+**Alterações necessárias ao trocar o modelo:**
+- Atualizar `dense_model` nos scripts de ingestão e nos chunkers
+- Ajustar `max_tokens` para 500
+- **Recriar a collection no Qdrant**, pois vetores de 384 dimensões não podem ser misturados com vetores de 1024 dimensões na mesma collection
+
+---
+
+### 2. Quantização — Comprimindo Vetores para Produção
+
+Com vetores de 1024 dimensões em `float32`, cada embedding ocupa 4 KB de RAM (1024 × 4 bytes). Isso escala rapidamente:
+
+| Vetores | RAM necessária (float32) |
+|---|---|
+| 1 milhão | ~4 GB |
+| 10 milhões | ~40 GB |
+| 100 milhões | ~400 GB |
+
+A **scalar quantization** converte cada `float32` (4 bytes) em um `int8` (1 byte), reduzindo o tamanho dos vetores em 75% sem perda significativa de qualidade.
+
+**Como funciona:** o Qdrant analisa a distribuição dos seus vetores, descobre o range real que os valores ocupam e mapeia esse range para o intervalo de um `int8` (-128 a 127). A transformação é parcialmente reversível, com perda mínima de precisão.
+
+**Benefícios:**
+- **4x menos RAM**: vetores de 1024 dimensões passam de 4 KB para 1 KB
+- **Buscas 30–60% mais rápidas**: CPUs modernas executam operações com `int8` mais eficientemente que `float32`
+
+**Configuração no Qdrant (`create_collection`):**
+
+```python
+# Vetores originais (float32) ficam em disco — economiza RAM
+vectors_config=models.VectorParams(size=1024, on_disk=True, ...),
+
+# Vetores quantizados (int8) ficam em RAM — buscas rápidas
+quantization_config=models.ScalarQuantization(
+    scalar=models.ScalarQuantizationConfig(
+        type=models.ScalarType.INT8,
+        quantile=0.99,   # ignora 1% de outliers no cálculo do range
+        always_ram=True, # mantém os quantizados sempre em RAM
+    )
+)
+```
+
+O parâmetro `quantile=0.99` faz o Qdrant ignorar o 1% de valores mais extremos ao calcular o range de mapeamento, evitando que outliers distorçam a precisão para os 99% dos casos normais.
+
+**Rescoring (opcional):** como a quantização introduz uma pequena imprecisão na ordenação, o Qdrant suporta rescoring — ele busca mais candidatos usando os vetores quantizados em RAM e depois reordena com os vetores originais em `float32` do disco:
+
+```python
+search_params=models.SearchParams(
+    quantization=models.QuantizationSearchParams(
+        ignore=False,
+        rescore=True,
+        oversampling=1.5,  # busca 1.5x mais candidatos antes de reordenar
+    )
+)
+```
+
+O `oversampling` controla o tradeoff: valores maiores aumentam a precisão mas também a latência. Um valor entre 1.5 e 2.0 é um bom ponto de partida.
+
+> **Quando usar quantização:** compensa a partir de ~1 milhão de vetores. Para bases menores (~500 mil vetores), a complexidade adicional normalmente não justifica os benefícios. Modelos de alta dimensionalidade (768, 1024, 1536+ dimensões) se beneficiam proporcionalmente mais.
